@@ -40,10 +40,42 @@ export default class SceneManager {
     const axesHelper = new THREE.AxesHelper(5);
     this.scene.add(axesHelper);
 
-
     // 🔹 Baru sekarang buat clock & pointcloud
     this.clock = new THREE.Clock();
     this.pointCloud = new PointCloudManager(this.scene);
+
+    // WebSocket ke ROS bridge
+    this.ws = new WebSocket("ws://localhost:9002");
+    this.ws.binaryType = "arraybuffer";
+
+    this.ws.onopen = () => {
+      console.log("Connected to ROS bridge");
+    };
+
+    this.ws.onmessage = (event) => {
+      const buffer = new Uint8Array(event.data);
+      const type = buffer[0];
+
+      if (type === 1) {
+        // Point cloud
+        const data = new Float32Array(event.data.slice(1));
+        this.pointCloud.update(data);
+      }
+
+      if (type === 2) {
+        // Odom
+        const pose = new Float32Array(event.data.slice(1));
+        const x = pose[0];
+        const y = pose[1];
+        const yaw = pose[2];
+
+        this.robot.updatePose(x, y, yaw);
+      }
+    };
+
+    this.ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+    };
 
     this.keys = {};
 
@@ -56,57 +88,21 @@ export default class SceneManager {
     });
 
     // Robot manager
-    this.robot = new RobotManager(this.scene)
+    this.robot = new RobotManager(this.scene);
 
     this.animate = this.animate.bind(this);
     this.onResize = this.onResize.bind(this);
 
     window.addEventListener("resize", this.onResize);
 
-    // Load PLY model
-    const loader = new PLYLoader(); 
-    loader.load("/full_subsampled.ply", (geometry) => {
-      geometry.computeVertexNormals();
-      const material = new THREE.PointsMaterial({
-        size: 0.05,
-        vertexColors: true
-      });
-      const points = new THREE.Points(geometry, material);
-      points.position.set(0, 0, 0);
-      this.scene.add(points);
-    });
-
     this.animate();
   }
 
   animate() {
-    requestAnimationFrame(this.animate)
+    requestAnimationFrame(this.animate);
 
-    const delta = this.clock.getDelta()
-    const speed = 5
-    const rotSpeed = 2
-
-    let move = 0
-    let rotate = 0
-
-    if (this.keys["w"]) move = speed
-    if (this.keys["s"]) move = -speed
-    if (this.keys["a"]) rotate = rotSpeed
-    if (this.keys["d"]) rotate = -rotSpeed
-
-    // Simulasi pose
-    this.robotYaw = (this.robotYaw || 0) + rotate * delta
-
-    const dx = Math.cos(this.robotYaw) * move * delta
-    const dy = Math.sin(this.robotYaw) * move * delta
-
-    this.robotX = (this.robotX || 0) + dx
-    this.robotY = (this.robotY || 0) + dy
-
-    this.robot.updatePose(this.robotX, this.robotY, this.robotYaw)
-
-    this.controls.update()
-    this.renderer.render(this.scene, this.camera)
+    this.controls.update();
+    this.renderer.render(this.scene, this.camera);
   }
 
   onResize() {

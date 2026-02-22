@@ -1,54 +1,46 @@
 import * as THREE from "three"
 
 export default class PointCloudManager {
-  constructor(scene) {
-    this.scene = scene
+  constructor(scene, maxPoints = 200000) {
+    this.scene = scene;
+    this.maxPoints = maxPoints;
 
-    const geometry = new THREE.BufferGeometry()
+    // Pre-allocate buffer besar supaya tidak realloc terus
+    this.positions = new Float32Array(this.maxPoints * 3);
 
-    const pointCount = 10000
-    const radius = 5
-    const height = 2
+    this.geometry = new THREE.BufferGeometry();
+    this.geometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(this.positions, 3)
+    );
 
-    const positions = new Float32Array(pointCount * 3)
+    // Awalnya tidak gambar apa-apa
+    this.geometry.setDrawRange(0, 0);
 
-    for (let i = 0; i < pointCount; i++) {
-      const angle = Math.random() * Math.PI * 2
-      const r = radius + (Math.random() - 0.5) * 0.2
+    this.material = new THREE.PointsMaterial({
+      size: 0.05,
+      color: 0x00ffcc,
+    });
 
-      positions[i * 3 + 0] = Math.cos(angle) * r
-      positions[i * 3 + 1] = Math.sin(angle) * r
-      positions[i * 3 + 2] = (Math.random() - 0.5) * height
+    this.points = new THREE.Points(this.geometry, this.material);
+    this.scene.add(this.points);
+  }
+
+  // Ini dipanggil saat WebSocket terima data ROS
+  update(pointArray) {
+    const count = Math.min(pointArray.length / 3, this.maxPoints);
+
+    for (let i = 0; i < count * 3; i++) {
+      this.positions[i] = pointArray[i];
     }
 
-    geometry.setAttribute(
-      "position",
-      new THREE.BufferAttribute(positions, 3)
-    )
-
-    const material = new THREE.PointsMaterial({
-      size: 0.05,
-      color: 0x00ffcc
-    })
-
-    this.points = new THREE.Points(geometry, material)
-    this.scene.add(this.points)
-
-    this.velocity = new THREE.Vector3()
-  }
-
-  update(delta) {
-    this.points.position.addScaledVector(this.velocity, delta)
-  }
-
-  setVelocity(x, y) {
-    this.velocity.x = x
-    this.velocity.y = y
+    this.geometry.setDrawRange(0, count);
+    this.geometry.attributes.position.needsUpdate = true;
   }
 
   dispose() {
-    this.points.geometry.dispose()
-    this.points.material.dispose()
-    this.scene.remove(this.points)
+    this.geometry.dispose();
+    this.material.dispose();
+    this.scene.remove(this.points);
   }
 }
