@@ -128,6 +128,13 @@ export default class SceneManager {
     if (this.scene) this.scene.clear();
   }
 
+  sendService(value) {
+    const buffer = new Uint8Array(2);
+    buffer[0] = 3;
+    buffer[1] = value ? 1 : 0;
+    this.ws.send(buffer);
+  }
+
   generateDummy(count) {
     const points = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {

@@ -5,6 +5,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 add_executable(bridge_node src/bridge_node.cpp)
 
@@ -13,6 +14,7 @@ ament_target_dependencies(
   rclcpp
   sensor_msgs
   nav_msgs
+  std_srvs
 )
 
 target_link_libraries(bridge_node pthread)

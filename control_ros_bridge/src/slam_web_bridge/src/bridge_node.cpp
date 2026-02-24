@@ -3,6 +3,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <std_srvs/srv/set_bool.hpp>
 
 // WebSocket++ Include files
 #include <websocketpp/config/asio_no_tls.hpp>
@@ -24,6 +25,8 @@ public:
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_point_cloud;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_odom;
 
+  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr toggle_client_;
+
   // WebSocket server and connection handle
   server ws_server_;
   websocketpp::connection_hdl connection_;
@@ -33,6 +36,8 @@ public:
 
     sub_point_cloud = this->create_subscription<sensor_msgs::msg::PointCloud2>("/filtered_points", 10, std::bind(&BridgeNode::callbackPointCloud, this, std::placeholders::_1));
     sub_odom = this->create_subscription<nav_msgs::msg::Odometry>("/odom", 10, std::bind(&BridgeNode::callbackOdom, this, std::placeholders::_1));
+
+    toggle_client_ = this->create_client<std_srvs::srv::SetBool>("/toggle_robot");
 
     ws_server_.init_asio();
 
@@ -47,6 +52,28 @@ public:
       ws_server_.start_accept();
       ws_server_.run(); })
         .detach();
+
+    ws_server_.set_message_handler(
+        [this](websocketpp::connection_hdl hdl, server::message_ptr msg)
+        {
+          auto payload = msg->get_payload();
+          if (payload.size() < 2)
+            return;
+
+          uint8_t type = payload[0];
+
+          if (type == 3) // service command
+          {
+            bool value = payload[1];
+
+            auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+            request->data = value;
+
+            toggle_client_->async_send_request(request);
+
+            RCLCPP_INFO(this->get_logger(), "Service request sent");
+          }
+        });
 
     RCLCPP_INFO(this->get_logger(), "Bridge node started");
   }

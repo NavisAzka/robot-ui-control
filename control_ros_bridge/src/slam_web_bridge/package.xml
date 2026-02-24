@@ -12,6 +12,8 @@
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
   <depend>nav_msgs</depend>
+  <depend>std_srvs</depend>
+
   <build_depend>websocketpp</build_depend>
   <exec_depend>websocketpp</exec_depend>
 

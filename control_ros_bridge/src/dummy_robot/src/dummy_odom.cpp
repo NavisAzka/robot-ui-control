@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
+#include <std_srvs/srv/set_bool.hpp>
 
 #include <termios.h>
 #include <unistd.h>
@@ -14,6 +15,12 @@ public:
   {
     pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/odom", 10);
 
+    service_ = this->create_service<std_srvs::srv::SetBool>(
+        "/toggle_robot",
+        std::bind(&DummyOdomNode::callbackService, this,
+                  std::placeholders::_1,
+                  std::placeholders::_2));
+
     timer_ = this->create_wall_timer(
         std::chrono::milliseconds(50),
         std::bind(&DummyOdomNode::publishOdom, this));
@@ -26,6 +33,8 @@ public:
 private:
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_;
   rclcpp::TimerBase::SharedPtr timer_;
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr service_;
+
   std::thread input_thread_;
 
   float x_ = 0.0f;
@@ -56,6 +65,19 @@ private:
     msg.pose.pose.orientation = q;
 
     pub_->publish(msg);
+  }
+
+  void callbackService(
+      const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+      std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+  {
+      if (request->data)
+          RCLCPP_INFO(this->get_logger(), "Robot ON");
+      else
+          RCLCPP_INFO(this->get_logger(), "Robot OFF");
+
+      response->success = true;
+      response->message = "OK";
   }
 
   void keyboardLoop()

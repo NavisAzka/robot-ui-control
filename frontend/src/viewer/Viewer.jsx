@@ -1,30 +1,30 @@
-import { useEffect, useRef } from "react"
+import { forwardRef, useEffect, useRef, useImperativeHandle } from "react"
 import SceneManager from "./SceneManager"
 
-export default function Viewer() {
-  const mountRef = useRef(null)
-  const sceneRef = useRef(null)
+const Viewer = forwardRef((props, ref) => {
+  const containerRef = useRef()
+  const sceneRef = useRef()
 
   useEffect(() => {
-    if (!mountRef.current) return
-
-    sceneRef.current = new SceneManager(mountRef.current)
+    sceneRef.current = new SceneManager(containerRef.current)
 
     return () => {
-      if (sceneRef.current) {
-        sceneRef.current.dispose()
-      }
+      sceneRef.current?.dispose()
     }
   }, [])
 
+  useImperativeHandle(ref, () => ({
+    sendService(value) {
+      sceneRef.current?.sendService(value)
+    }
+  }))
+
   return (
     <div
-      ref={mountRef}
-      style={{
-        width: "100%",
-        height: "100%",
-        overflow: "hidden"
-      }}
+      ref={containerRef}
+      style={{ width: "100%", height: "100%" }}
     />
   )
-}
+})
+
+export default Viewer
